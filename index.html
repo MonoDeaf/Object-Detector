@@ -1,0 +1,566 @@
+<html><head><base href="https://object-detector.app/">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile Object Detector Camera</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: #090909;
+    }
+    #video-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    #camera-feed {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #detection-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transition: opacity 0.5s ease-in-out;
+    }
+    .button {
+      padding: 15px 30px;
+      font-size: 18px;
+      color: white;
+      border-radius: 5px;
+      content-align: center;
+      cursor: pointer;
+      background-color: #111111;
+      border: 1px solid #1e1e1e;
+    }
+    #start-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #error-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #ff0000;
+      display: none;
+    }
+    #dropdown-container {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+    #dropdown-button {
+      width: 40px;
+      height: 40px;
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: normal;
+      border-radius: 8px;
+    }
+    #dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 50px;
+      background-color: #111111;
+      border: 1px solid #1e1e1e;
+      border-radius: 5px;
+      padding: 10px;
+      width: 250px;
+    }
+    #object-list {
+      height: 6rem;
+      overflow-y: auto;
+      margin-bottom: 20px;
+      border: 1px solid #333;
+      padding: 5px;
+    }
+    .object-checkbox {
+      display: block;
+      color: #d6dcdc;
+      margin-bottom: 5px;
+    }
+    .object-checkbox input {
+      margin-right: 5px;
+    }
+    #dropdown-content p {
+      margin: 0;
+      padding: 10px;
+      color: white;
+      font-size: 14px;
+    }
+    #disclaimer {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #d6dcdc;
+      font-size: 14px;
+      max-width: 80%;
+    }
+    #loading-disclaimer {
+      display: none;
+      position: absolute;
+      top: 60%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #d6dcdc;
+      font-size: 16px;
+      max-width: 80%;
+    }
+    .slider-container {
+      margin-top: 10px;
+    }
+    .slider {
+      width: 100%;
+      -webkit-appearance: none;
+      outline: none;
+      opacity: 0.7;
+      transition: opacity .2s;
+    }
+    .slider:hover {
+      opacity: 1;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 25px;
+      height: 25px;
+      background: #ffffff;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+    .slider::-moz-range-thumb {
+      width: 25px;
+      height: 25px;
+      background: #ffffff;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+    #color-slider {
+      background: linear-gradient(to right, red, yellow, green, cyan, blue, magenta, white);
+    }
+    #opacity-slider {
+      background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,1));
+    }
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .checkbox-container input {
+      margin-right: 10px;
+    }
+    .checkbox-container label {
+      color: #d6dcdc;
+    }
+    .hidden-button {
+      opacity: 0;
+    }
+    
+* {
+scrollbar-width: thin;
+scrollbar-color: #d6dcdc #ffffff00;
+-webkit-tap-highlight-color: transparent;
+-webkit-font-smoothing: antialiased;
+-moz-osx-font-smoothing: grayscale;
+}
+
+*::-webkit-scrollbar {
+width: 10px;
+}
+
+*::-webkit-scrollbar-track {
+background: #ffffff00;
+}
+
+*::-webkit-scrollbar-thumb {
+background-color: #d6dcdc;
+border-radius: 1000px;
+border: 0px solid #ffffff;
+}
+
+*::-webkit-scrollbar-button {
+background: #ffffff00;
+display: none;
+}
+
+  </style>
+</head>
+<body>
+  <div id="video-container">
+    <video id="camera-feed" autoplay playsinline></video>
+    <canvas id="detection-overlay"></canvas>
+    <p id="disclaimer">Camera permission must be given for the object detector app to function properly.</p>
+    <p id="loading-disclaimer">Object Detector loading...</p>
+    <button id="start-button" class="button">Start Camera</button>
+    <div id="error-message"></div>
+    <div id="dropdown-container">
+      <button id="dropdown-button" class="button">✦</button>
+      <div id="dropdown-content">
+        <p id="fps-display" style="color: white; font-size: 14px; margin-bottom: 10px;">FPS: 0</p>
+        <p style="opacity: 0.8;">Use screen record on device to save video</p>
+        <div class="slider-container">
+          <p>Detection Box Color</p>
+          <input type="range" min="0" max="360" value="120" class="slider" id="color-slider">
+        </div>
+        <div class="slider-container">
+          <p>Box Fill Opacity</p>
+          <input type="range" min="0" max="100" value="20" class="slider" id="opacity-slider" style="margin-bottom: 10px;">
+        </div>
+        <p>Detectable Objects</p>
+        <div id="object-list">
+        </div>
+        <div class="checkbox-container">
+          <input type="checkbox" id="crazy-mind-checkbox">
+          <label for="crazy-mind-checkbox">Enable Crazy Mind</label>
+        </div>
+        <div class="checkbox-container">
+          <input type="checkbox" id="fullscreen-checkbox">
+          <label for="fullscreen-checkbox">Enable Fullscreen</label>
+        </div>
+        <div class="checkbox-container">
+          <input type="checkbox" id="hide-button-checkbox">
+          <label for="hide-button-checkbox">Hide Button</label>
+          <span style="color: #d6dcdc; font-size: 12px; margin-left: 5px; opacity: 0.6;">(Changes button opacity to 0)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  
+  <script>
+    const crazyMindTexts = {
+      person: "Love me...",
+      car: "Vroom vroom",
+      truck: "Big wheels rolling",
+      bus: "All aboard",
+      dog: "Woof woof",
+      cat: "Meow meow",
+      bird: "Tweet tweet",
+      horse: "Neigh",
+      sheep: "Baa",
+      cow: "Moo",
+      elephant: "Trumpet",
+      bear: "Growl",
+      zebra: "Stripes",
+      giraffe: "Neck stretch",
+      backpack: "Carry me",
+      umbrella: "Rain shield",
+      handbag: "Fashion accessory",
+      tie: "Formal wear",
+      suitcase: "Travel time",
+      frisbee: "Catch me",
+      skis: "Snow fun",
+      snowboard: "Shred the slopes",
+      "sports ball": "Game on",
+      kite: "Flying high",
+      "baseball bat": "Batter up",
+      "baseball glove": "Catch it",
+      skateboard: "Ollie time",
+      surfboard: "Ride the waves",
+      "tennis racket": "Serve it up",
+      bottle: "Stay hydrated",
+      "wine glass": "Cheers",
+      cup: "Sip sip",
+      fork: "Let's eat",
+      knife: "Slice and dice",
+      spoon: "Scoop it up",
+      bowl: "Fill me up",
+      banana: "Go bananas",
+      apple: "An apple a day",
+      sandwich: "Lunch time",
+      orange: "Citrus burst",
+      broccoli: "Eat your greens",
+      carrot: "What's up, doc",
+      "hot dog": "Ballpark snack",
+      pizza: "Slice of heaven",
+      donut: "Sweet treat",
+      cake: "Celebration time",
+      chair: "Pop a squat",
+      couch: "Relax and unwind",
+      "potted plant": "Green thumb",
+      bed: "Sweet dreams",
+      "dining table": "Dinner is served",
+      toilet: "Nature calls",
+      tv: "Screen time",
+      laptop: "Work or play",
+      mouse: "Click click",
+      remote: "Channel surfing",
+      keyboard: "Type away",
+      "cell phone": "Ring ring",
+      microwave: "Zap it",
+      oven: "Bake it",
+      toaster: "Toast time",
+      sink: "Splash splash",
+      refrigerator: "Cool storage",
+      book: "Read me",
+      clock: "Tick tock",
+      vase: "Flower power",
+      scissors: "Snip snip",
+      "teddy bear": "Cuddle me",
+      "hair drier": "Blow dry",
+      toothbrush: "Brush your teeth"
+    };
+
+    const video = document.getElementById('camera-feed');
+    const canvas = document.getElementById('detection-overlay');
+    const ctx = canvas.getContext('2d');
+    const startButton = document.getElementById('start-button');
+    const errorMessage = document.getElementById('error-message');
+    const dropdownButton = document.getElementById('dropdown-button');
+    const dropdownContent = document.getElementById('dropdown-content');
+    const fpsDisplay = document.getElementById('fps-display');
+    const disclaimer = document.getElementById('disclaimer');
+    const loadingDisclaimer = document.getElementById('loading-disclaimer');
+    const colorSlider = document.getElementById('color-slider');
+    const opacitySlider = document.getElementById('opacity-slider');
+    const crazyMindCheckbox = document.getElementById('crazy-mind-checkbox');
+    const fullscreenCheckbox = document.getElementById('fullscreen-checkbox');
+    const hideButtonCheckbox = document.getElementById('hide-button-checkbox');
+    const objectList = document.getElementById('object-list');
+    const detectedObjects = new Set();
+    let objectCheckboxes = {};
+    let stream;
+    let detectionColor = `hsl(120, 100%, 50%)`;
+    let boxOpacity = 0.2;
+    let enableCrazyMind = false;
+    let previousDetections = {};
+    let frameCount = 0;
+    let lastFrameTime = performance.now();
+
+    function createObjectCheckboxes() {
+      Object.keys(crazyMindTexts).forEach(object => {
+        const checkboxContainer = document.createElement('label');
+        checkboxContainer.className = 'object-checkbox';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.object = object;
+        
+        checkboxContainer.appendChild(checkbox);
+        checkboxContainer.appendChild(document.createTextNode(object));
+        
+        objectList.appendChild(checkboxContainer);
+        objectCheckboxes[object] = checkbox;
+      });
+    }
+
+    async function setupCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        video.srcObject = stream;
+        return new Promise((resolve) => {
+          video.onloadedmetadata = () => {
+            resolve(video);
+          };
+        });
+      } catch (error) {
+        throw new Error('Camera access denied or not available');
+      }
+    }
+
+    function updateFPS() {
+      frameCount++;
+      const now = performance.now();
+      const elapsed = now - lastFrameTime;
+
+      if (elapsed >= 1000) {
+        const fps = Math.round((frameCount * 1000) / elapsed);
+        fpsDisplay.textContent = `FPS: ${fps}`;
+        frameCount = 0;
+        lastFrameTime = now;
+      }
+    }
+
+    async function detectObjects(model) {
+      const detectFrame = async () => {
+        updateFPS();
+        const predictions = await model.detect(video);
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        predictions.forEach(prediction => {
+          const objectName = prediction.class.toLowerCase();
+          if (objectCheckboxes[objectName] && objectCheckboxes[objectName].checked) {
+            const [x, y, width, height] = prediction.bbox;
+            const key = `${prediction.class}_${Math.round(x)}_${Math.round(y)}`;
+            
+            if (!previousDetections[key]) {
+              previousDetections[key] = { x, y, width, height, frames: 0 };
+            } else {
+              const prev = previousDetections[key];
+              const alpha = 0.95; 
+              prev.x = prev.x * alpha + x * (1 - alpha);
+              prev.y = prev.y * alpha + y * (1 - alpha);
+              prev.width = prev.width * alpha + width * (1 - alpha);
+              prev.height = prev.height * alpha + height * (1 - alpha);
+              prev.frames++;
+            }
+            
+            const smoothed = previousDetections[key];
+            
+            ctx.fillStyle = colorSlider.value == 360 ? `rgba(255, 255, 255, ${boxOpacity})` : `hsla(${colorSlider.value}, 100%, 50%, ${boxOpacity})`;
+            ctx.beginPath();
+            ctx.roundRect(smoothed.x, smoothed.y, smoothed.width, smoothed.height, 8);
+            ctx.fill();
+            
+            ctx.strokeStyle = detectionColor;
+            ctx.lineWidth = 1; 
+            ctx.beginPath();
+            ctx.roundRect(smoothed.x, smoothed.y, smoothed.width, smoothed.height, 8);
+            ctx.stroke();
+            
+            ctx.fillStyle = detectionColor;
+            ctx.font = '1rem "Courier New", monospace'; 
+            let text;
+            
+            if (enableCrazyMind) {
+              const defaultText = "I'm mysterious";
+              text = crazyMindTexts[prediction.class.toLowerCase()] || defaultText;
+            } else {
+              text = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
+            }
+            
+            ctx.fillText(text, smoothed.x, smoothed.y > 36 ? smoothed.y - 15 : 36);
+            detectedObjects.add(objectName);
+          }
+        });
+        
+        Object.keys(previousDetections).forEach(key => {
+          previousDetections[key].frames++;
+          if (previousDetections[key].frames > 60) {
+            delete previousDetections[key];
+          }
+        });
+        
+        updateCheckboxVisibility();
+        
+        requestAnimationFrame(detectFrame);
+      };
+      
+      detectFrame();
+    }
+
+    function updateCheckboxVisibility() {
+      Object.keys(objectCheckboxes).forEach(object => {
+        const checkbox = objectCheckboxes[object];
+        checkbox.parentElement.style.display = detectedObjects.has(object) ? 'block' : 'none';
+      });
+    }
+
+    async function startApp() {
+      try {
+        await setupCamera();
+        video.play();
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        startButton.style.display = 'none';
+        disclaimer.style.display = 'none';
+        loadingDisclaimer.style.display = 'block'; 
+        
+        const model = await cocoSsd.load();
+        createObjectCheckboxes(); // Create checkboxes after the model is loaded
+        loadingDisclaimer.style.display = 'none'; 
+        
+        await detectObjects(model);
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+      startButton.style.display = 'none';
+      disclaimer.style.display = 'none';
+      loadingDisclaimer.style.display = 'none';
+    }
+
+    startButton.addEventListener('click', startApp);
+    
+    dropdownButton.addEventListener('click', () => {
+      dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+    });
+
+    window.addEventListener('click', (event) => {
+      if (!event.target.matches('#dropdown-button') && !event.target.closest('#dropdown-content')) {
+        dropdownContent.style.display = 'none';
+      }
+    });
+
+    colorSlider.addEventListener('input', (event) => {
+      const hue = event.target.value;
+      detectionColor = hue == 360 ? 'white' : `hsl(${hue}, 100%, 50%)`;
+    });
+
+    opacitySlider.addEventListener('input', (event) => {
+      boxOpacity = event.target.value / 100;
+    });
+
+    crazyMindCheckbox.addEventListener('change', (event) => {
+      enableCrazyMind = event.target.checked;
+    });
+
+    fullscreenCheckbox.addEventListener('change', (event) => {
+      if (event.target.checked) {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+          document.documentElement.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.documentElement.msExitFullscreen();
+        }
+      }
+    });
+
+    hideButtonCheckbox.addEventListener('change', (event) => {
+      if (event.target.checked) {
+        dropdownButton.classList.add('hidden-button');
+      } else {
+        dropdownButton.classList.remove('hidden-button');
+      }
+    });
+
+    document.addEventListener('fullscreenchange', updateFullscreenCheckbox);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenCheckbox);
+    document.addEventListener('mozfullscreenchange', updateFullscreenCheckbox);
+    document.addEventListener('MSFullscreenChange', updateFullscreenCheckbox);
+
+    function updateFullscreenCheckbox() {
+      fullscreenCheckbox.checked = !!document.fullscreenElement;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError('Sorry, camera access is not available in your browser. Please try using a modern mobile browser.');
+    }
+  </script>
+</body></html>
